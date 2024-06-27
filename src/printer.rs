@@ -6,6 +6,7 @@ use std::str;
 extern crate rustc_data_structures;
 extern crate rustc_hir;
 extern crate rustc_middle;
+extern crate rustc_monomorphize;
 extern crate rustc_session;
 extern crate rustc_span;
 extern crate rustc_smir;
@@ -51,12 +52,20 @@ struct BodyDetails {
 #[derive(Serialize)]
 struct MirBody(Body, Option<BodyDetails>);
 #[derive(Serialize)]
+enum MonoItemKind {
+    MonoItemFn,
+    MonoItemStatic,
+    MonoItemGlobalAsm
+}
+#[derive(Serialize)]
 struct Item {
     name: String,
-    id: stable_mir::DefId,
-    kind: ItemKind,
-    body: MirBody,
-    promoted: Vec<MirBody>,
+    mono_item_kind: MonoItemKind,
+    id: Option<stable_mir::DefId>,
+    instance_kind: Option<InstanceKind>,
+    item_kind: Option<ItemKind>,
+    body: Option<MirBody>,
+    promoted: Option<Vec<MirBody>>,
     details: Option<ItemDetails>
 }
 #[derive(Serialize)]
@@ -78,8 +87,6 @@ struct InstanceData {
 struct CrateData {
     name: String,
     items: Vec<Item>,
-    foreign_modules: Vec<ForeignModule>,
-    all_mono_items: Vec<MonoItem>,
 }
 
 fn generic_data(tcx: TyCtxt<'_>, id: DefId) -> GenericData {
@@ -182,44 +189,54 @@ fn emit_smir_internal(tcx: TyCtxt<'_>, writer: &mut dyn io::Write) {
     .map(MonoItem::Fn)
     .collect();
   let all_mono_items = collect_all_mono_items(tcx, &initial_mono_items);
-  let items: Vec<Item> = stable_mir::all_local_items().iter().map(|item| {
-    let body = item.body();
-    let id = rustc_internal::internal(tcx,item.def_id());
-    Item {
-      name: item.name(),
-      id:   item.def_id(),
-      kind: item.kind(),
-      body: mk_mir_body(body, Some(&item.name())),
-      promoted: tcx.promoted_mir(id).into_iter().map(|body| mk_mir_body(rustc_internal::stable(body), None)).collect(),
-      details: get_item_details(tcx, id),
-    }
-  }).collect();
-  let foreign_modules: Vec<ForeignModule> = local_crate.foreign_modules().into_iter().map(|module_def| {
-      ForeignModule {
-        name: module_def.name(),
-        items: module_def.module().items().into_iter().map(|item| ForeignItem { name: item.name(), kind: item.kind() }).collect()
-      }
-  }).collect();
-  let mono_map_str = format!("{:?}", tcx.upstream_monomorphizations(()));
-  let mono_map: Vec<InstanceData> = tcx.with_stable_hashing_context(|ref hcx| {
-     tcx.upstream_monomorphizations(()).to_sorted(hcx, false).into_iter().flat_map(|(id, monos)| {
-      monos.to_sorted(hcx, false).into_iter().map(|(args, _crate_num)| {
-          let inst = rustc_internal::stable(rustc_middle::ty::Instance::resolve(tcx, ParamEnv::reveal_all(), *id, args).ok().flatten());
-          if let Some(inst) = inst {
-            Some(InstanceData {
-                internal_id: format!("{:?}", id.clone()),
-                instance: inst
-            })
-          } else {
-            None
+  let items: Vec<Item> = all_mono_items.iter().map(|item| {
+      match item {
+        MonoItem::Fn(item) => {
+          // let item = rustc_internal::stable(instance);
+          let body = item.body();
+          let id = item.def.def_id();
+          let name = item.name();
+          let internal_id = rustc_internal::internal(tcx,id);
+          Item {
+            name: name.clone(),
+            mono_item_kind: MonoItemKind::MonoItemFn,
+            id:   Some(id),
+            instance_kind: Some(item.kind),
+            item_kind: CrateItem::try_from(*item).map_or(None, |item| Some(item.kind())),
+            body: body.map_or(None, |body| { Some(mk_mir_body(body, Some(&name))) }),
+            promoted: if item.has_body() { Some(tcx.promoted_mir(internal_id).into_iter().map(|body| mk_mir_body(rustc_internal::stable(body), None)).collect()) } else { None },
+            details: get_item_details(tcx, internal_id),
           }
-      })
-    }).flatten().collect()
-  });
+        },
+        MonoItem::Static(static_def) => {
+          let internal_id = rustc_internal::internal(tcx,static_def.def_id());
+          Item {
+            name: static_def.name(),
+            mono_item_kind: MonoItemKind::MonoItemStatic,
+            id:   Some(static_def.def_id()),
+            instance_kind: None,
+            item_kind: None,
+            body: None,
+            promoted: None,
+            details: get_item_details(tcx, internal_id),
+          }
+        },
+        MonoItem::GlobalAsm(asm) => {
+          Item {
+            name: format!("{:#?}", asm),
+            mono_item_kind: MonoItemKind::MonoItemGlobalAsm,
+            id:   None,
+            instance_kind: None,
+            item_kind: None,
+            body: None,
+            promoted: None,
+            details: None,
+          }
+        }
+      }
+    }).collect();
   let crate_data = CrateData { name: local_crate.name,
                                items: items,
-                               foreign_modules: foreign_modules,
-                               all_mono_items,
                              };
   writer.write_all("{\"crates\":".as_bytes()).unwrap();
   scc_accessor(|| {
