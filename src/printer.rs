@@ -177,13 +177,13 @@ fn emit_smir_internal(tcx: TyCtxt<'_>, writer: &mut dyn io::Write) {
   // From kani compiler_interface.rs
   // From kani reachability.rs
   let maybe_main_instance = stable_mir::entry_fn().map(|main_fn| Instance::try_from(main_fn).ok()).flatten();
-  let main_instance = match maybe_main_instance {
-    Some(instance) => instance,
-    None => return,
-  };
+  // let main_instance = match maybe_main_instance {
+  //   Some(instance) => instance,
+  //   None => return,
+  // };
   let initial_mono_items: Vec<MonoItem> = filter_crate_items(tcx, |_, instance| {
     let def_id = rustc_internal::internal(tcx, instance.def.def_id());
-    instance == main_instance || tcx.is_reachable_non_generic(def_id)
+    Some(instance) == maybe_main_instance || tcx.is_reachable_non_generic(def_id)
   })
     .into_iter()
     .map(MonoItem::Fn)
@@ -323,7 +323,7 @@ impl<'tcx> MonoItemsCollector<'tcx> {
       collector.visit_body(&body);
       collector.collected.into_iter().collect()
     } else {
-      println!("{instance:#?}");
+      // println!("{instance:#?}");
       vec![]
     }
   }
