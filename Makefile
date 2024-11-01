@@ -17,8 +17,8 @@ RUST_DEP_DIR=${RUST_BUILD_DIR}/stage1-rustc/${RUST_ARCH}/release/deps
 TARGET_DEP_DIR=${CURDIR}/target/${TARGET}/deps
 TEMP_DIR=${RUST_DIR}/temp
 RUST_REPO=https://github.com/runtimeverification/rust
-RUST_BRANCH=smir_serde_derive_intern_scripts
-TOOLCHAIN_NAME=smir_serde_derive_intern_scripts
+RUST_BRANCH=master
+TOOLCHAIN_NAME=smir_pretty
 RELEASE_FLAG=
 ifeq (${TARGET}, release)
 RELEASE_FLAG=--release
