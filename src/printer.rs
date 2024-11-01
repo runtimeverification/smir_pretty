@@ -17,7 +17,6 @@ use rustc_span::{def_id::{DefId, LOCAL_CRATE}, symbol}; // DUMMY_SP, symbol::sym
 use rustc_smir::rustc_internal;
 use stable_mir::{CrateItem,CrateDef,ItemKind,mir::{Body,LocalDecl,Terminator,TerminatorKind,Rvalue,visit::MirVisitor},ty::{Allocation,ForeignItemKind},mir::mono::{MonoItem,Instance,InstanceKind},visited_tys,visited_alloc_ids}; // Symbol
 use serde::{Serialize, Serializer};
-use crate::kani_lib::kani_collector::{filter_crate_items, collect_all_mono_items};
 
 // Structs for serializing extra details about mono items
 // ======================================================
@@ -517,19 +516,6 @@ fn collect_unevaluated_constant_items(tcx: TyCtxt<'_>, items: HashMap<String,Ite
 // Core item collection logic
 // ==========================
 
-fn kani_collect(tcx: TyCtxt<'_>, opts: String) -> Vec<MonoItem> {
-  let collect_all = opts == "ALL";
-  let main_instance = stable_mir::entry_fn().map(|main_fn| Instance::try_from(main_fn).ok()).flatten();
-  let initial_mono_items: Vec<MonoItem> = filter_crate_items(tcx, |_, instance| {
-    let def_id = rustc_internal::internal(tcx, instance.def.def_id());
-    Some(instance) == main_instance || (collect_all && tcx.is_reachable_non_generic(def_id))
-  })
-    .into_iter()
-    .map(MonoItem::Fn)
-    .collect();
-  collect_all_mono_items(tcx, &initial_mono_items)
-}
-
 fn mono_collect(tcx: TyCtxt<'_>) -> Vec<MonoItem> {
   let units = tcx.collect_and_partition_mono_items(()).1;
   units.iter().flat_map(|unit| {
@@ -539,11 +525,7 @@ fn mono_collect(tcx: TyCtxt<'_>) -> Vec<MonoItem> {
 
 fn collect_items(tcx: TyCtxt<'_>) -> HashMap<String, Item> {
   // get initial set of mono_items
-  let items = if let Ok(opts) = std::env::var("USE_KANI_PORT") {
-    kani_collect(tcx, opts)
-  } else {
-    mono_collect(tcx)
-  };
+  let items = mono_collect(tcx);
   items.iter().map(|item| {
       let name = mono_item_name(tcx, item);
       ( name.clone(), mk_item(tcx, item.clone(), name) )
