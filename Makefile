@@ -127,3 +127,22 @@ integration-test: build
 
 golden:
 	make integration-test DIFF=">"
+
+FAILING_DIR = $(CURDIR)/tests/integration/failing
+
+.PHONY: check-failing
+check-failing: SMIR      ?= $(CURDIR)/run.sh -Z no-codegen
+check-failing:
+	@mkdir -p $(TESTDIR) # Ensure passing directory exists
+	for rust in $(FAILING_DIR)/*.rs; do \
+		echo $${rust}; \
+		if ${SMIR} $${rust}; then \
+			target=$${rust%.rs}.smir.json.expected; \
+			mv $${rust} "$(TESTDIR)/"; \
+			mv $${target} "$(TESTDIR)/"; \
+			echo "Moved $${rust} to $(TESTDIR)/"; \
+			echo "Moved $${target} to $(TESTDIR)/"; \
+		else \
+			echo "Failed: $${rust} remains in $(FAILING_DIR)/"; \
+		fi \
+	done
