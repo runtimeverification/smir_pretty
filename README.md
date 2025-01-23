@@ -45,6 +45,17 @@ There are a few environment variables that can be set to control the tools outpu
 2.  `LINK_INST`  - use a richer key-structure for the link-time `functions` map which uses keys that are pairs of a function type (`Ty`) _and_ an function instance kind (`InstanceKind`)
 3.  `DEBUG` - serialize additional data in the JSON file and dump logs to stdout
 
+### Usage For std-lib
+To generate the stable MIR output for the entire standard libary, the most simple way is using the [cargo option build-std](https://doc.rust-lang.org/cargo/reference/unstable.html#build-std) on a new project while pointing the `RUSTC` environment variable to `run.sh`. For example:
+```
+cargo new example
+cd example
+RUSTC="/<PATH-TO>/smir_prety/run.sh" cargo build -Z build-std --target <TARGET>
+```
+If the `smir_pretty` is not built this will not initiate a build of `smir_pretty` and will crash instead. If the target is unknown it can be read using the `rustc_arch.sh` script in this repo. The generated files can be found in `example/target/<TARGET>/deps/` and will have extension `*.smir.json`.
+
+WARNING: This option has been succeeding on cargo version `1.79.0-nightly` but has been failing on `1.82.0-nightly`
+
 ### Invocation Details
 
 We use an uncommon build process where we link against a patched rustc installed in this repo.
