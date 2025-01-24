@@ -2,16 +2,11 @@
 name = "smir_pretty"
 version = "0.1.0"
 edition = "2021"
-# rust-version = "1.78.0" # I think we get latest available rust by unsetting this and setting rust-toolchain.toml.toolchain.channel = nightly
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tracing = "0.1"
-# serde = { version = "=1.0.202", features = ["derive"] }
-# serde_cbor = "0.11"
-# serde_json = "1.0"
-# tar = "0.4"
 
 [package.metadata.rust-analyzer]
 # This package uses rustc crates.
