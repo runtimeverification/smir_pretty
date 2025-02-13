@@ -1,13 +1,19 @@
 [package]
-name = "stable_mir_pretty"
+name = "stable_mir_json"
 version = "0.1.0"
 edition = "2021"
+default-run = "stable_mir_json"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 dot-writer = "0.1.4"
-tracing = "0.1"
+anyhow = "1"
+home = "0.5"
+
+[[bin]]
+name = "cargo_stable_mir_json"
+path = "src/bin/cargo_stable_mir_json.rs"
 
 [package.metadata.rust-analyzer]
 # This package uses rustc crates.

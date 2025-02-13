@@ -4,7 +4,7 @@ pub mod driver;
 pub mod printer;
 use driver::stable_mir_driver;
 use printer::emit_smir;
-use stable_mir_pretty::mk_graph::emit_dotfile;
+use stable_mir_json::mk_graph::emit_dotfile;
 
 fn main() {
     let mut args: Vec<String> = env::args().collect();
